@@ -1,13 +1,13 @@
 //
-//  DrawingAppUITestsLaunchTests.swift
-//  DrawingAppUITests
+//  DrawingtoonUITestsLaunchTests.swift
+//  DrawingtoonUITests
 //
-//  Created by Heejung Yang on 6/25/25.
+//  Created by 방문사용자 on 9/21/25.
 //
 
 import XCTest
 
-final class DrawingAppUITestsLaunchTests: XCTestCase {
+final class DrawingtoonUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true
