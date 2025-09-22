@@ -2,7 +2,7 @@
 //  DrawingtoonUITests.swift
 //  DrawingtoonUITests
 //
-//  Created by 방문사용자 on 9/21/25.
+//  Created by Heejung Yang on 9/21/25.
 //
 
 import XCTest

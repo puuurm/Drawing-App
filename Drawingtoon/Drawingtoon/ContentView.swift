@@ -2,54 +2,46 @@
 //  ContentView.swift
 //  Drawingtoon
 //
-//  Created by 방문사용자 on 9/21/25.
+//  Created by Heejung Yang on 9/21/25.
 //
 
 import SwiftUI
-import SwiftData
+import PhotosUI
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+    @State private var selectedItem: PhotosPickerItem?
+    @State private var image: UIImage?
 
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                    }
-                }
-                .onDelete(perform: deleteItems)
+        VStack(spacing: 16) {
+            PhotosPicker(
+                selection: $selectedItem,
+                matching: .images,            
+                photoLibrary: .shared()
+            ) {
+                Label("앨범에서 사진 선택", systemImage: "photo.on.rectangle.angled")
+                    .font(.headline)
             }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
-                }
+
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxHeight: 300)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal)
+            } else {
+                Text("선택된 이미지가 없습니다")
+                    .foregroundColor(.secondary)
             }
-        } detail: {
-            Text("Select an item")
         }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
+        .padding()
+        .onChange(of: selectedItem) { newItem in
+            Task {
+                if let data = try? await newItem?.loadTransferable(type: Data.self),
+                   let uiImage = UIImage(data: data) {
+                    self.image = uiImage
+                }
             }
         }
     }
@@ -57,5 +49,4 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
 }
