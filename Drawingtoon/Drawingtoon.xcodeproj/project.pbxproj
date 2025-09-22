@@ -40,11 +40,6 @@
 			path = DrawingtoonTests;
 			sourceTree = "<group>";
 		};
-		C25F5C7B2E7FDA8100844B80 /* DrawingtoonUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = DrawingtoonUITests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -77,7 +72,6 @@
 			children = (
 				C25F5C612E7FDA7E00844B80 /* Drawingtoon */,
 				C25F5C712E7FDA8100844B80 /* DrawingtoonTests */,
-				C25F5C7B2E7FDA8100844B80 /* DrawingtoonUITests */,
 				C25F5C602E7FDA7E00844B80 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -152,9 +146,6 @@
 			);
 			dependencies = (
 				C25F5C7A2E7FDA8100844B80 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				C25F5C7B2E7FDA8100844B80 /* DrawingtoonUITests */,
 			);
 			name = DrawingtoonUITests;
 			packageProductDependencies = (
