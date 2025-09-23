@@ -7,6 +7,8 @@
 
 import Foundation
 
+let NT = NetworkManager.default
+
 class NetworkManager {
     
     static let `default` = NetworkManager()
