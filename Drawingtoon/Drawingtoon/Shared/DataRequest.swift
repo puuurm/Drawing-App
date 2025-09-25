@@ -7,7 +7,7 @@
 
 import Foundation
 
-class DataRequest {
+public class DataRequest {
     var requests: [URLRequest] = []
     let convertible: URLRequestConvertible
     var data: Data?
@@ -17,14 +17,40 @@ class DataRequest {
         self.data = data
     }
     
-    public func response(queue: DispatchQueue = .main, completionHandler: @escaping @Sendable (Data?) -> Void) async throws -> Self {
+    public func response(
+        queue: DispatchQueue = .main,
+        completionHandler: @escaping (Data) -> Void
+    ) -> Self {
         do {
-            guard let request = self.requests.last else { fatalError() }
-            let (data, response) = try await URLSession.shared.data(for: request)
-            completionHandler(data)
+            let request = try convertible.asURLRequest()
+            self.requests.append(request)
+            
+            let task = URLSession.shared.dataTask(with: request) { data, _, error in
+                let payload: Data
+                if let d = data {
+                    self.data = d
+                    payload = d
+                } else {
+                    payload = Data()
+                }
+                
+                queue.async {
+                    completionHandler(payload)
+                }
+            }
+            task.resume()
         } catch {
-            throw error
+            let payload = Data()
+            queue.async { completionHandler(payload) }
         }
+
         return self
     }
+}
+
+public struct DataResponse<Success, Failure: Error> {
+    let request: URLRequest?
+    let response: HTTPURLResponse?
+    let data: Data?
+    var error: Error?
 }

@@ -7,12 +7,12 @@
 
 import Foundation
 
-protocol URLConvertible {
+public protocol URLConvertible {
     func asURL() throws -> URL
 }
 
 extension String: URLConvertible {
-    func asURL() throws -> URL {
+    public func asURL() throws -> URL {
         guard let url = URL(string: self) else { throw NetworkError.invalidURL }
         return url
     }
@@ -22,12 +22,12 @@ extension URL: URLConvertible {
     public func asURL() throws -> URL { self }
 }
 
-protocol URLRequestConvertible {
+public protocol URLRequestConvertible {
     func asURLRequest() throws -> URLRequest
 }
 
 extension URLRequest: URLRequestConvertible {
-    func asURLRequest() throws -> URLRequest { self }
+    public func asURLRequest() throws -> URLRequest { self }
 }
 
 extension URLRequest {

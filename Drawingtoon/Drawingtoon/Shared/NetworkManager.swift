@@ -7,39 +7,40 @@
 
 import Foundation
 
-let NT = NetworkManager.default
+public let NT = NetworkManager.default
 
-class NetworkManager {
+public final class NetworkManager {
     
     static let `default` = NetworkManager()
     
-    func request<Parameters: Encodable>(
+    public func request(
         _ convertible: URLConvertible,
         method: HTTPMethod = .get,
         parameters: Parameters? = nil,
-        encoder: ParameterEncoder,
+        encoding: ParameterEncoding = URLEncoding.default,
         headers: [String: String]? = nil
     ) -> DataRequest {
-        let convertible = RequestEncodableConvertible(
+        let convertible = RequestConvertible(
             url: convertible,
             method: method,
             parameters: parameters,
-            encoder: encoder,
+            encoding: encoding,
             headers: headers
         )
         return DataRequest(convertible: convertible)
     }
     
-    struct RequestEncodableConvertible<Parameters: Encodable>: URLRequestConvertible {
+    struct RequestConvertible: URLRequestConvertible {
         let url: any URLConvertible
         let method: HTTPMethod
         let parameters: Parameters?
-        let encoder: ParameterEncoder
+        let encoding: any ParameterEncoding
         let headers: [String: String]?
 
         func asURLRequest() throws -> URLRequest {
-            let request = try URLRequest(url: url, method: method, headers: headers)
-            return try parameters.map { try encoder.encode($0, into: request) } ?? request
+            var request = try URLRequest(url: url, method: method, headers: headers)
+            return try encoding.encode(request, with: parameters)
         }
     }
+    
 }

@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum NetworkError: Error {
+public enum NetworkError: Error {
     case invalidURL
     case noData
     case decodingError(Error)
@@ -16,4 +16,5 @@ enum NetworkError: Error {
     case clientError(Int, String?)
     case serverError(Int, String?)
     case unknownHTTPError(Int, String?)
+    case parameterEncodingFailed
 }

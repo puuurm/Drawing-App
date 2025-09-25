@@ -21,18 +21,31 @@
 			remoteGlobalIDString = C25F5C5E2E7FDA7E00844B80;
 			remoteInfo = Drawingtoon;
 		};
+		C2E5DCE82E8423D40001F36C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C25F5C572E7FDA7E00844B80 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C25F5C5E2E7FDA7E00844B80;
+			remoteInfo = Drawingtoon;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		C25F5C5F2E7FDA7E00844B80 /* Drawingtoon.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Drawingtoon.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C25F5C6E2E7FDA8100844B80 /* DrawingtoonTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DrawingtoonTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C25F5C782E7FDA8100844B80 /* DrawingtoonUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DrawingtoonUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2E5DCE42E8423D40001F36C /* DrawingtoonTests1.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DrawingtoonTests1.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		C25F5C612E7FDA7E00844B80 /* Drawingtoon */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Drawingtoon;
+			sourceTree = "<group>";
+		};
+		C2E5DCE52E8423D40001F36C /* DrawingtoonTests1 */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = DrawingtoonTests1;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -59,6 +72,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C2E5DCE12E8423D40001F36C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -66,6 +86,7 @@
 			isa = PBXGroup;
 			children = (
 				C25F5C612E7FDA7E00844B80 /* Drawingtoon */,
+				C2E5DCE52E8423D40001F36C /* DrawingtoonTests1 */,
 				C25F5C602E7FDA7E00844B80 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -76,6 +97,7 @@
 				C25F5C5F2E7FDA7E00844B80 /* Drawingtoon.app */,
 				C25F5C6E2E7FDA8100844B80 /* DrawingtoonTests.xctest */,
 				C25F5C782E7FDA8100844B80 /* DrawingtoonUITests.xctest */,
+				C2E5DCE42E8423D40001F36C /* DrawingtoonTests1.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -145,6 +167,29 @@
 			productReference = C25F5C782E7FDA8100844B80 /* DrawingtoonUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		C2E5DCE32E8423D40001F36C /* DrawingtoonTests1 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C2E5DCEA2E8423D40001F36C /* Build configuration list for PBXNativeTarget "DrawingtoonTests1" */;
+			buildPhases = (
+				C2E5DCE02E8423D40001F36C /* Sources */,
+				C2E5DCE12E8423D40001F36C /* Frameworks */,
+				C2E5DCE22E8423D40001F36C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C2E5DCE92E8423D40001F36C /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				C2E5DCE52E8423D40001F36C /* DrawingtoonTests1 */,
+			);
+			name = DrawingtoonTests1;
+			packageProductDependencies = (
+			);
+			productName = DrawingtoonTests1;
+			productReference = C2E5DCE42E8423D40001F36C /* DrawingtoonTests1.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -163,6 +208,10 @@
 						TestTargetID = C25F5C5E2E7FDA7E00844B80;
 					};
 					C25F5C772E7FDA8100844B80 = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = C25F5C5E2E7FDA7E00844B80;
+					};
+					C2E5DCE32E8423D40001F36C = {
 						CreatedOnToolsVersion = 16.4;
 						TestTargetID = C25F5C5E2E7FDA7E00844B80;
 					};
@@ -185,6 +234,7 @@
 				C25F5C5E2E7FDA7E00844B80 /* Drawingtoon */,
 				C25F5C6D2E7FDA8100844B80 /* DrawingtoonTests */,
 				C25F5C772E7FDA8100844B80 /* DrawingtoonUITests */,
+				C2E5DCE32E8423D40001F36C /* DrawingtoonTests1 */,
 			);
 		};
 /* End PBXProject section */
@@ -205,6 +255,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		C25F5C762E7FDA8100844B80 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C2E5DCE22E8423D40001F36C /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -235,6 +292,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C2E5DCE02E8423D40001F36C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -247,6 +311,11 @@
 			isa = PBXTargetDependency;
 			target = C25F5C5E2E7FDA7E00844B80 /* Drawingtoon */;
 			targetProxy = C25F5C792E7FDA8100844B80 /* PBXContainerItemProxy */;
+		};
+		C2E5DCE92E8423D40001F36C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C25F5C5E2E7FDA7E00844B80 /* Drawingtoon */;
+			targetProxy = C2E5DCE82E8423D40001F36C /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -502,6 +571,42 @@
 			};
 			name = Release;
 		};
+		C2E5DCEB2E8423D40001F36C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = V9TZ6H4V4N;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lemon.DrawingtoonTests1;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Drawingtoon.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Drawingtoon";
+			};
+			name = Debug;
+		};
+		C2E5DCEC2E8423D40001F36C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = V9TZ6H4V4N;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lemon.DrawingtoonTests1;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Drawingtoon.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Drawingtoon";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -537,6 +642,15 @@
 			buildConfigurations = (
 				C25F5C892E7FDA8100844B80 /* Debug */,
 				C25F5C8A2E7FDA8100844B80 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C2E5DCEA2E8423D40001F36C /* Build configuration list for PBXNativeTarget "DrawingtoonTests1" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C2E5DCEB2E8423D40001F36C /* Debug */,
+				C2E5DCEC2E8423D40001F36C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
