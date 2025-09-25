@@ -44,3 +44,15 @@ public final class NetworkManager {
     }
     
 }
+
+public enum NetworkError: Error {
+    case invalidURL
+    case noData
+    case decodingError(Error)
+    case informationalError(Int, String?)
+    case redirectionError(Int, String?)
+    case clientError(Int, String?)
+    case serverError(Int, String?)
+    case unknownHTTPError(Int, String?)
+    case parameterEncodingFailed
+}
