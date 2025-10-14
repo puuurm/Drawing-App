@@ -137,7 +137,10 @@ public struct EditorView: View {
                     }
                 }
                 .onAppear {
-                    canvasScale = max(1.0, min(4.0, fit))
+                    canvasScale = max(0.1, min(4.0, fit))
+                }
+                .onChange(of: geo.size) { _, _ in
+                    canvasScale = max(0.1, min(4.0, fit))
                 }
                 .padding(DT.Spacing.card)
             }
@@ -145,6 +148,7 @@ public struct EditorView: View {
             .clipped()
         }
     }
+
 
     private var bottomBar: some View {
         VStack(spacing: DT.Spacing.sm) {
@@ -259,6 +263,7 @@ public struct EditorView: View {
                     width:  project.canvasSize.width  / screenScale,
                     height: project.canvasSize.height / screenScale
                 )
+
                 let fit = initialFitScale(imageSize: image.size, displayCanvas: displayCanvas)
 
                 let layer = ImageLayer(
@@ -400,7 +405,6 @@ fileprivate struct CanvasWrapper<Content: View>: View {
                 .shadow(DT.Elevation.level1)
         }
         .scaleEffect(scale)
-        // 줌만 허용 (캔버스 자체 드래그/오프셋 제거)
         .gesture(
             MagnificationGesture()
                 .onChanged { v in
