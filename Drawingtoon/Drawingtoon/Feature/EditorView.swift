@@ -142,7 +142,7 @@ public struct EditorView: View {
                 .padding(DT.Spacing.card)
             }
 //            .padding(DT.Spacing.page)
-            .clipped() 
+            .clipped()
         }
     }
 

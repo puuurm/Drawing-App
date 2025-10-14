@@ -141,7 +141,6 @@ public struct HomeView: View {
                     .foregroundStyle(DT.ColorToken.textSecondary)
             }
             Spacer()
-            IconButton("gearshape") { router.push(.settings) }
         }
     }
 
