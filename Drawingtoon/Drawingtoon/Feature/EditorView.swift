@@ -105,8 +105,21 @@ public struct EditorView: View {
 
     private var editorArea: some View {
         GeometryReader { geo in
+            let screenScale = UIScreen.main.scale
+            let displayCanvas = CGSize(
+                width:  project.canvasSize.width  / screenScale,
+                height: project.canvasSize.height / screenScale
+            )
+
+            let available = CGSize(
+                width:  geo.size.width  - DT.Spacing.page * 2,
+                height: geo.size.height - DT.Spacing.page * 2
+            )
+
+            let fit = min(available.width / displayCanvas.width,
+                          available.height / displayCanvas.height) * 0.95
+
             ZStack {
-                // Checkerboard background
                 Checkerboard()
                     .clipShape(RoundedRectangle(cornerRadius: DT.Radius.l, style: .continuous))
                     .overlay(
@@ -114,12 +127,22 @@ public struct EditorView: View {
                             .stroke(DT.ColorToken.outline, lineWidth: 1)
                     )
 
-                // Canvas content
-                canvas(size: geo.size)
-                    .padding(DT.Spacing.card)
+                CanvasWrapper(size: displayCanvas, scale: $canvasScale) {
+                    ForEach(layers) { layer in
+                        LayerView(layer: layer, isSelected: selectedID == layer.id)
+                            .onTapGesture { selectedID = layer.id }
+                            .gesture(dragGesture(for: layer.id))
+                            .gesture(scaleGesture(for: layer.id))
+                            .gesture(rotationGesture(for: layer.id))
+                    }
+                }
+                .onAppear {
+                    canvasScale = max(1.0, min(4.0, fit))
+                }
+                .padding(DT.Spacing.card)
             }
-            .padding(DT.Spacing.page)
-            .clipped()
+//            .padding(DT.Spacing.page)
+            .clipped() 
         }
     }
 
@@ -178,7 +201,6 @@ public struct EditorView: View {
             }
     }
 
-    // 공통 헬퍼: enum 케이스 분기 후 transform 갱신
     private func mutateTransform(id: UUID, _ f: (inout LayerTransform) -> Void) {
         guard let idx = layers.firstIndex(where: { $0.id == id }) else { return }
         switch layers[idx] {
@@ -229,8 +251,20 @@ public struct EditorView: View {
     private func loadPickedPhoto(_ item: PhotosPickerItem?) async {
         guard let item else { return }
         do {
-            if let data = try await item.loadTransferable(type: Data.self), let image = UIImage(data: data) {
-                let layer = ImageLayer(image: image, transform: .init())
+            if let data = try await item.loadTransferable(type: Data.self),
+               let image = UIImage(data: data) {
+
+                let screenScale = UIScreen.main.scale
+                let displayCanvas = CGSize(
+                    width:  project.canvasSize.width  / screenScale,
+                    height: project.canvasSize.height / screenScale
+                )
+                let fit = initialFitScale(imageSize: image.size, displayCanvas: displayCanvas)
+
+                let layer = ImageLayer(
+                    image: image,
+                    transform: .init(position: .zero, scale: fit, rotation: .degrees(0))
+                )
                 layers.append(.image(layer))
                 selectedID = layer.id
             }
@@ -238,6 +272,14 @@ public struct EditorView: View {
             print("[PhotosPicker] error: \(error)")
         }
     }
+
+    private func initialFitScale(imageSize: CGSize, displayCanvas: CGSize) -> CGFloat {
+        guard imageSize.width > 0, imageSize.height > 0 else { return 1 }
+        let s = min(displayCanvas.width / imageSize.width,
+                    displayCanvas.height / imageSize.height) * 0.9
+        return max(0.1, min(4.0, s))
+    }
+
 
     // MARK: - Helpers
     private var selectedIndex: Int? { layers.firstIndex { $0.id == selectedID } }
