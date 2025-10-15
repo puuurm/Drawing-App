@@ -52,6 +52,11 @@ public struct EditorView: View {
     @State private var layers: [Layer] = []
     @State private var selectedID: UUID? = nil
 
+    // Gesture baselines per-layer (to prevent cumulative drift)
+    @State private var dragStartPos: [UUID: CGPoint] = [:]
+    @State private var startScale: [UUID: CGFloat] = [:]
+    @State private var startRotation: [UUID: Angle] = [:]
+    
     // Canvas state
     @State private var canvasScale: CGFloat = 1
     // Pickers
@@ -128,12 +133,12 @@ public struct EditorView: View {
                     )
 
                 CanvasWrapper(size: displayCanvas, scale: $canvasScale) {
-                    ForEach(layers) { layer in
-                        LayerView(layer: layer, isSelected: selectedID == layer.id)
-                            .onTapGesture { selectedID = layer.id }
-                            .gesture(dragGesture(for: layer.id))
-                            .gesture(scaleGesture(for: layer.id))
-                            .gesture(rotationGesture(for: layer.id))
+                    ForEach(layers.indices, id: \.self) { idx in
+                        LayerRow(layer: $layers[idx], isSelected: selectedID == layers[idx].id)
+                            .onTapGesture { selectedID = layers[idx].id }
+                            .gesture(dragGesture(for: layers[idx].id))
+                            .gesture(scaleGesture(for: layers[idx].id))
+                            .gesture(rotationGesture(for: layers[idx].id))
                     }
                 }
                 .onAppear {
@@ -170,12 +175,12 @@ public struct EditorView: View {
     private func canvas(size: CGSize) -> some View {
         let canvasRect = CGSize(width: project.canvasSize.width, height: project.canvasSize.height)
         return CanvasWrapper(size: canvasRect, scale: $canvasScale) {
-            ForEach(layers) { layer in
-                LayerView(layer: layer, isSelected: selectedID == layer.id)
-                    .onTapGesture { selectedID = layer.id }
-                    .gesture(dragGesture(for: layer.id))
-                    .gesture(scaleGesture(for: layer.id))
-                    .gesture(rotationGesture(for: layer.id))
+            ForEach(layers.indices, id: \.self) { idx in
+                LayerRow(layer: $layers[idx], isSelected: selectedID == layers[idx].id)
+                    .onTapGesture { selectedID = layers[idx].id }
+                    .gesture(dragGesture(for: layers[idx].id))
+                    .gesture(scaleGesture(for: layers[idx].id))
+                    .gesture(rotationGesture(for: layers[idx].id))
             }
         }
     }
@@ -183,35 +188,62 @@ public struct EditorView: View {
     // MARK: - Gestures
     private func dragGesture(for id: UUID) -> some Gesture {
         DragGesture()
-            .onChanged { value in
-                mutateTransform(id: id) { t in
-                    t.position.x += value.translation.width
-                    t.position.y += value.translation.height
-                }
+          .onChanged { value in
+            if dragStartPos[id] == nil { dragStartPos[id] = currentTransform(id)?.position ?? .zero }
+            let start = dragStartPos[id] ?? .zero
+            mutateTransform(id: id) { t in
+              t.position = CGPoint(x: start.x + value.translation.width,
+                                   y: start.y + value.translation.height)
             }
+          }
+          .onEnded { _ in dragStartPos[id] = nil }
     }
 
     private func scaleGesture(for id: UUID) -> some Gesture {
         MagnificationGesture()
             .onChanged { v in
-                mutateTransform(id: id) { t in t.scale = max(0.1, min(8.0, v)) }
+                if startScale[id] == nil { startScale[id] = currentTransform(id)?.scale ?? 1 }
+                let base = startScale[id] ?? 1
+                mutateTransform(id: id) { t in
+                    t.scale = max(0.1, min(8.0, base * v))
+                }
             }
+            .onEnded { _ in startScale[id] = nil }
     }
 
     private func rotationGesture(for id: UUID) -> some Gesture {
         RotationGesture()
             .onChanged { a in
-                mutateTransform(id: id) { t in t.rotation = a }
+                if startRotation[id] == nil { startRotation[id] = currentTransform(id)?.rotation ?? .degrees(0) }
+                let base = startRotation[id] ?? .degrees(0)
+                mutateTransform(id: id) { t in
+                    t.rotation = Angle(degrees: base.degrees + a.degrees)
+                }
             }
+            .onEnded { _ in startRotation[id] = nil }
     }
 
     private func mutateTransform(id: UUID, _ f: (inout LayerTransform) -> Void) {
         guard let idx = layers.firstIndex(where: { $0.id == id }) else { return }
         switch layers[idx] {
         case .image(var l):
-            var t = l.transform; f(&t); l.transform = t; layers[idx] = .image(l)
+            var t = l.transform
+            f(&t)
+            l.transform = t
+            layers[idx] = .image(l)
         case .bubble(var b):
-            var t = b.transform; f(&t); b.transform = t; layers[idx] = .bubble(b)
+            var t = b.transform
+            f(&t)
+            b.transform = t
+            layers[idx] = .bubble(b)
+        }
+    }
+    
+    private func currentTransform(_ id: UUID) -> LayerTransform? {
+        guard let idx = layers.firstIndex(where: { $0.id == id }) else { return nil }
+        switch layers[idx] {
+        case .image(let l): return l.transform
+        case .bubble(let b): return b.transform
         }
     }
 
@@ -239,8 +271,8 @@ public struct EditorView: View {
 
     private func canvasForExport() -> some View {
         CanvasWrapper(size: project.canvasSize, scale: .constant(1)) {
-            ForEach(layers) { layer in
-                LayerView(layer: layer, isSelected: false)
+            ForEach(layers, id: \.id) { layer in
+                ExportLayerView(layer: layer)
             }
         }
     }
@@ -305,64 +337,133 @@ public struct EditorView: View {
     }
 }
 
-// MARK: - Layer View
-fileprivate struct LayerView: View {
-    let layer: Layer
+// MARK: - Layer View (Binding-based)
+fileprivate struct LayerRow: View {
+    @Binding var layer: Layer
     let isSelected: Bool
 
     var body: some View {
         switch layer {
-        case .image(let l): ImageLayerView(layer: l, selected: isSelected)
-        case .bubble(let l): BubbleLayerView(layer: l, selected: isSelected)
+        case .image:
+            if let img = imageBinding {
+                ImageLayerView(layer: img, selected: isSelected)
+            }
+        case .bubble:
+            if let bub = bubbleBinding {
+                BubbleLayerView(layer: bub, selected: isSelected)
+            }
         }
     }
+
+    private var imageBinding: Binding<ImageLayer>? {
+        guard case .image(let value) = layer else { return nil }
+        return Binding<ImageLayer>(
+            get: { value },
+            set: { layer = .image($0) }
+        )
+    }
+
+    private var bubbleBinding: Binding<BubbleLayer>? {
+        guard case .bubble(let value) = layer else { return nil }
+        return Binding<BubbleLayer>(
+            get: { value },
+            set: { layer = .bubble($0) }
+        )
+    }
+
 }
 
 fileprivate struct ImageLayerView: View {
-    var layer: ImageLayer
+    @Binding var layer: ImageLayer
     var selected: Bool
 
     var body: some View {
-        Image(uiImage: layer.image)
-            .resizable()
-            .interpolation(.high)
-            .frame(width: layer.image.size.width, height: layer.image.size.height)
-            .modifier(TransformModifier(t: layer.transform))
+        ZStack {
+            Image(uiImage: layer.image)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: layer.image.size.width, height: layer.image.size.height)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(selected ? DT.ColorToken.brandSecondary : .clear, lineWidth: 2)
+                )
+        }
+        .modifier(TransformModifier(t: layer.transform)) // ← 변환을 마지막에
+    }
+}
+
+
+fileprivate struct BubbleLayerView: View {
+    @Binding var layer: BubbleLayer
+    var selected: Bool
+
+    var body: some View {
+        ZStack {
+            HStack(spacing: DT.Spacing.xs) {
+                TextField("말풍선", text: $layer.text)
+                    .font(.system(size: 24, weight: .bold))
+                    .padding(.horizontal, DT.Spacing.md)
+                    .padding(.vertical, DT.Spacing.xs)
+                    .background(bubbleShape.fill(Color.white.opacity(0.9)))
+                    .overlay(bubbleShape.stroke(DT.ColorToken.outline, lineWidth: 1))
+            }
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
                     .stroke(selected ? DT.ColorToken.brandSecondary : .clear, lineWidth: 2)
             )
-    }
-}
-
-fileprivate struct BubbleLayerView: View {
-    @State var layer: BubbleLayer
-    var selected: Bool
-
-    var body: some View {
-        HStack(spacing: DT.Spacing.xs) {
-            TextField("말풍선", text: $layer.text)
-                .font(.system(size: 24, weight: .bold))
-                .padding(.horizontal, DT.Spacing.md)
-                .padding(.vertical, DT.Spacing.xs)
-                .background(bubbleShape.fill(Color.white.opacity(0.9)))
-                .overlay(bubbleShape.stroke(DT.ColorToken.outline, lineWidth: 1))
         }
-        .modifier(TransformModifier(t: layer.transform))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(selected ? DT.ColorToken.brandSecondary : .clear, lineWidth: 2)
-        )
+        .modifier(TransformModifier(t: layer.transform)) // ← 변환을 마지막에
     }
 
     private var bubbleShape: some Shape {
         switch layer.style {
-        case .rounded: return AnyShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        case .cloud: return AnyShape(CloudShape())
-        case .shout: return AnyShape(SpeechTailShape())
+        case .rounded: AnyShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        case .cloud:   AnyShape(CloudShape())
+        case .shout:   AnyShape(SpeechTailShape())
         }
     }
 }
+
+fileprivate struct ExportLayerView: View {
+    let layer: Layer
+    var body: some View {
+        switch layer {
+        case .image(let l):
+            Image(uiImage: l.image)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: l.image.size.width, height: l.image.size.height)
+                .modifier(TransformModifier(t: l.transform))
+        case .bubble(let b):
+            HStack(spacing: DT.Spacing.xs) {
+                Text(b.text)
+                    .font(.system(size: 24, weight: .bold))
+                    .padding(.horizontal, DT.Spacing.md)
+                    .padding(.vertical, DT.Spacing.xs)
+                    .background(
+                        { () -> AnyShape in
+                            switch b.style {
+                            case .rounded: return AnyShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            case .cloud:   return AnyShape(CloudShape())
+                            case .shout:   return AnyShape(SpeechTailShape())
+                            }
+                        }().fill(Color.white.opacity(0.9))
+                    )
+                    .overlay(
+                        { () -> AnyShape in
+                            switch b.style {
+                            case .rounded: return AnyShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            case .cloud:   return AnyShape(CloudShape())
+                            case .shout:   return AnyShape(SpeechTailShape())
+                            }
+                        }().stroke(DT.ColorToken.outline, lineWidth: 1)
+                    )
+            }
+            .modifier(TransformModifier(t: b.transform))
+        }
+    }
+}
+
 
 // MARK: - Layer Toolbar
 fileprivate struct LayerToolbar: View {
