@@ -76,6 +76,7 @@ public struct EditorView: View {
             TokenDivider()
             bottomBar
         }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .navigationTitle(project.title)
         .navigationBarTitleDisplayMode(.inline)
         .background(DT.ColorToken.background)
