@@ -176,7 +176,7 @@ public struct EditorView: View {
     private func canvas(size: CGSize) -> some View {
         let canvasRect = CGSize(width: project.canvasSize.width, height: project.canvasSize.height)
         return CanvasWrapper(size: canvasRect, scale: $canvasScale) {
-            ForEach(layers.indices, id: \.self) { idx in
+            ForEach(Array(layers.enumerated()), id: \.element.id) { idx, _ in
                 LayerRow(layer: $layers[idx], isSelected: selectedID == layers[idx].id)
                     .onTapGesture { selectedID = layers[idx].id }
                     .gesture(dragGesture(for: layers[idx].id))
@@ -402,18 +402,23 @@ fileprivate struct BubbleLayerView: View {
         ZStack {
             HStack(spacing: DT.Spacing.xs) {
                 TextField("말풍선", text: $layer.text)
+                    .textFieldStyle(.plain)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: true)
                     .font(.system(size: 24, weight: .bold))
                     .padding(.horizontal, DT.Spacing.md)
                     .padding(.vertical, DT.Spacing.xs)
                     .background(bubbleShape.fill(Color.white.opacity(0.9)))
                     .overlay(bubbleShape.stroke(DT.ColorToken.outline, lineWidth: 1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(selected ? DT.ColorToken.brandSecondary : .clear, lineWidth: 2)
+                    )
+                    .contentShape(Rectangle())
             }
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(selected ? DT.ColorToken.brandSecondary : .clear, lineWidth: 2)
-            )
+            .fixedSize()
+            .modifier(TransformModifier(t: layer.transform))
         }
-        .modifier(TransformModifier(t: layer.transform)) // ← 변환을 마지막에
     }
 
     private var bubbleShape: some Shape {
