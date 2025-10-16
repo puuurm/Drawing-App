@@ -378,6 +378,33 @@ public struct AICartoonizerView: View {
     }
 }
 
+public struct LocalCartoonizerService: AICartoonizerService {
+    private let ctx = CIContext()
+    public init() {}
+    public func cartoonize(_ image: UIImage, options: CartoonizeOptions) async throws -> UIImage {
+        guard let cg = image.cgImage else { throw CartoonizeError.invalidInput }
+        let src = CIImage(cgImage: cg)
+
+        let poster = CIFilter.colorPosterize(); poster.inputImage = src; poster.levels = 5
+
+        let edges = CIFilter.edges(); edges.inputImage = poster.outputImage; edges.intensity = 4
+
+        let noir = CIFilter.photoEffectNoir(); noir.inputImage = poster.outputImage
+        let blend = CIFilter.multiplyBlendMode()
+        blend.inputImage = edges.outputImage
+        blend.backgroundImage = noir.outputImage
+
+        let out = blend.outputImage ?? src
+        guard let outCG = ctx.createCGImage(out, from: out.extent) else { throw CartoonizeError.decodeFailed }
+        return UIImage(cgImage: outCG, scale: image.scale, orientation: image.imageOrientation)
+    }
+}
+
+struct FeatureFlags { var useLiveAI: Bool = false } 
+private struct FlagsKey: EnvironmentKey { static let defaultValue = FeatureFlags() }
+extension EnvironmentValues { var flags: FeatureFlags { get { self[FlagsKey.self] } set { self[FlagsKey.self] = newValue } } }
+
+
 #Preview("Stub Service (Default)") {
     AICartoonizerView()
         .environment(\.services, .stub)
