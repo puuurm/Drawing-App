@@ -8,12 +8,15 @@
 import SwiftUI
 import SwiftData
 
+// MARK: - App Entry
 @main
-struct DrawingtoonApp: App {
+struct DrawingToonApp: App {
+    @StateObject private var router = Router()
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
+                .environmentObject(router)
         }
     }
 }
