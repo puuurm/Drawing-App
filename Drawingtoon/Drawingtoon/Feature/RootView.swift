@@ -16,7 +16,7 @@ public struct RootView: View {
 
     public var body: some View {
         NavigationStack(path: $router.path) {
-            GeminiTextPingView()
+            CartoonizerDiagnosticsView()
                 .navigationDestination(for: Route.self) { route in
                     switch route {
                     case .editor(let project):
@@ -28,6 +28,14 @@ public struct RootView: View {
                 .toolbar { trailingToolbar }
                 .background(DT.ColorToken.background)
         }
+        .environment(\.services, .init(
+          cartoonizer: GeminiCartoonizerService(config: .init(
+            apiKey: GeminiCartoonizerService.defaultAPIKey(),
+            model: "gemini-2.5-flash-image",
+            endpoint: "https://generativelanguage.googleapis.com/v1beta",
+            timeout: 30
+          ))
+        ))
         .onChange(of: scenePhase) { _, phase in
             if phase == .inactive {
                 // TODO: Add autosave logic or cleanup here if necessary.

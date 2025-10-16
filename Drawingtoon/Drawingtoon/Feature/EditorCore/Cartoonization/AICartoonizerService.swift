@@ -106,7 +106,7 @@ public struct GeminiCartoonizerService: AICartoonizerService {
         public var endpoint: String // Google AI public endpoint (generativelanguage)
         public var timeout: TimeInterval
         public init(apiKey: String,
-                    model: String = "gemini-1.5-flash",
+                    model: String = "gemini-2.5-flash-image",
                     endpoint: String = "https://generativelanguage.googleapis.com/v1beta",
                     timeout: TimeInterval = 30) {
             self.apiKey = apiKey
@@ -116,14 +116,21 @@ public struct GeminiCartoonizerService: AICartoonizerService {
         }
     }
 
-    private let config: Config
+    let config: Config
     public init(config: Config = .init(apiKey: GeminiCartoonizerService.defaultAPIKey())) {
         self.config = config
     }
 
     /// Read API key from Info.plist (GEMINI_API_KEY) by default
     public static func defaultAPIKey() -> String {
-        (Bundle.main.object(forInfoDictionaryKey: "GEMINI_API_KEY") as? String) ?? ""
+        guard let url = Bundle.main.url(forResource: "Secrets", withExtension: "plist"),
+              let data = try? Data(contentsOf: url),
+              let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil),
+              let dic = plist as? [String: Any],
+              let apiKey = dic["GEMINI_API_KEY"] as? String else {
+            return ""
+        }
+        return apiKey
     }
 
     public func cartoonize(_ image: UIImage, options: CartoonizeOptions) async throws -> UIImage {
@@ -141,10 +148,10 @@ public struct GeminiCartoonizerService: AICartoonizerService {
     /// Builds a generateContent request with the input image as inline_data and a light prompt.
     private func cartoonizeWithREST(_ image: UIImage, options: CartoonizeOptions) async throws -> UIImage {
         guard !config.apiKey.isEmpty else { throw CartoonizeError.server("API 키가 없습니다 (GEMINI_API_KEY).") }
-
+        
         // Encode image -> JPEG (you can switch to PNG if transparency matters)
         guard let data = image.jpegData(compressionQuality: 0.9) else { throw CartoonizeError.encodeFailed }
-
+        
         // Prompt guiding style
         let stylePrompt: String = {
             switch options.style {
@@ -154,7 +161,7 @@ public struct GeminiCartoonizerService: AICartoonizerService {
             case .edgeWork: return "Convert the input photo emphasizing edges with stylized line work."
             }
         }()
-
+        
         // Gemini 1.5 generateContent JSON
         struct InlineData: Codable { let mime_type: String; let data: String }
         struct Part: Codable {
@@ -162,14 +169,26 @@ public struct GeminiCartoonizerService: AICartoonizerService {
             var inline_data: InlineData? = nil
         }
         struct Content: Codable { let role: String?; let parts: [Part] }
-        struct RequestBody: Codable { let contents: [Content] }
-
-        let body = RequestBody(contents: [
-            Content(role: "user", parts: [
-                Part(text: stylePrompt + " Intensity: \(options.intensity). Respond with an image output."),
-                Part(inline_data: .init(mime_type: "image/jpeg", data: data.base64EncodedString()))
-            ])
-        ])
+        struct GenerationConfig: Codable {
+            var responseModalities: [String]?
+            var response_mime_type: String?
+        }
+        struct RequestBody: Codable {
+            let contents: [Content]
+            var generationConfig: GenerationConfig?
+        }
+        
+        let body = RequestBody(
+            contents: [
+                Content(role: "user", parts: [
+                    Part(text: stylePrompt + " Return the output as an image only (no text)."),
+                    Part(inline_data: .init(mime_type: "image/jpeg", data: data.base64EncodedString()))
+                ])
+            ],
+            generationConfig: GenerationConfig(
+                responseModalities: ["IMAGE", "TEXT"]
+            )
+        )
 
         // POST /models/{model}:generateContent
         guard let url = URL(string: "\(config.endpoint)/models/\(config.model):generateContent?key=\(config.apiKey)") else {
