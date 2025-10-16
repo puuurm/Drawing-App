@@ -117,17 +117,14 @@ public struct EditorView: View {
                 height: project.canvasSize.height / screenScale
             )
 
-            let available = CGSize(
-                width:  geo.size.width  - DT.Spacing.page * 2,
-                height: geo.size.height - DT.Spacing.page * 2
-            )
-
-            let fit = min(available.width / displayCanvas.width,
-                          available.height / displayCanvas.height) * 0.95
+            let available = geo.size
+            let fit = min(
+                available.width / displayCanvas.width,
+                available.height / displayCanvas.height
+            ) 
 
             ZStack {
                 Checkerboard()
-                    .clipShape(RoundedRectangle(cornerRadius: DT.Radius.l, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: DT.Radius.l, style: .continuous)
                             .stroke(DT.ColorToken.outline, lineWidth: 1)
@@ -148,9 +145,7 @@ public struct EditorView: View {
                 .onChange(of: geo.size) { _, _ in
                     canvasScale = max(0.1, min(4.0, fit))
                 }
-                .padding(DT.Spacing.card)
             }
-//            .padding(DT.Spacing.page)
             .clipped()
         }
     }
