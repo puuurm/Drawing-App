@@ -14,12 +14,19 @@ import CoreImage.CIFilterBuiltins
 
 public struct CartoonizeOptions: Sendable, Equatable {
     public enum Style: String, CaseIterable, Sendable { case comic, monoSketch, noir, edgeWork }
+    public enum Strength: String, CaseIterable, Sendable { case soft, standard, strong }
     public var style: Style
-    public var intensity: Double // 0.0 ~ 1.0 (implementation-dependent)
-    public var resizeMax: CGFloat? // optional longest-edge resize before upload
-    public init(style: Style = .comic, intensity: Double = 0.7, resizeMax: CGFloat? = 2048) {
+    public var intensity: Double // derived from strength (0...1)
+    public var strength: Strength
+    public var resizeMax: CGFloat?
+    public init(style: Style = .comic, strength: Strength = .standard, resizeMax: CGFloat? = 1200) {
         self.style = style
-        self.intensity = max(0, min(1, intensity))
+        self.strength = strength
+        switch strength {
+        case .soft: self.intensity = 0.25
+        case .standard: self.intensity = 0.6
+        case .strong: self.intensity = 0.9
+        }
         self.resizeMax = resizeMax
     }
 }
@@ -274,6 +281,7 @@ final class AICartoonizerViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var style: CartoonizeOptions.Style = .comic
+    @Published var strength: CartoonizeOptions.Strength = .standard
     @Published var intensity: Double = 0.7
     @Published var resizeMax: CGFloat = 1200
 
@@ -291,13 +299,14 @@ final class AICartoonizerViewModel: ObservableObject {
         defer { isLoading = false }
         do {
             let prepared = resizedIfNeeded(img, maxSize: resizeMax)
-            let options = CartoonizeOptions(style: style, intensity: intensity, resizeMax: resizeMax)
+            let options = CartoonizeOptions(style: style, strength: strength, resizeMax: resizeMax)
             let out = try await service.cartoonize(prepared, options: options)
             resultImage = out
         } catch is CancellationError { errorMessage = CartoonizeError.cancelled.localizedDescription }
           catch let e as CartoonizeError { errorMessage = e.localizedDescription }
           catch { errorMessage = error.localizedDescription }
     }
+
 
     func undoOnce() { if let prev = lastImageBeforeRun { resultImage = prev } }
 
@@ -356,7 +365,9 @@ struct AICartoonizerView: View {
                 Picker("스타일", selection: $vm.style) {
                     ForEach(CartoonizeOptions.Style.allCases, id: \.self) { Text($0.rawValue) }
                 }
-                HStack { Text("강도"); Slider(value: $vm.intensity, in: 0...1) }
+                Picker("강도", selection: $vm.strength) {
+                    ForEach(CartoonizeOptions.Strength.allCases, id: \.self) { Text($0.rawValue) }
+                }
                 HStack { Text("리사이즈"); Slider(value: Binding(get: { Double(vm.resizeMax) }, set: { vm.resizeMax = CGFloat($0) }), in: 512...2048) }
             } label: { Label("옵션", systemImage: "slider.horizontal.3") }
         }
@@ -432,42 +443,102 @@ public struct LocalCartoonizerService: AICartoonizerService {
     public func cartoonize(_ image: UIImage, options: CartoonizeOptions) async throws -> UIImage {
         guard let cg = image.cgImage else { throw CartoonizeError.invalidInput }
         let src = CIImage(cgImage: cg)
-        let t = CGFloat(max(0.0, min(1.0, options.intensity))) // 0...1
+        let s = options.strength
+        func pick<T>(_ soft: T, _ std: T, _ strong: T) -> T { switch s { case .soft: return soft; case .standard: return std; case .strong: return strong } }
+
+        // Common base: slight noise reduction + posterize color quantization
+        let denoise = CIFilter.noiseReduction(); denoise.inputImage = src; denoise.noiseLevel = pick(0.01, 0.02, 0.04); denoise.sharpness = pick(0.3, 0.2, 0.1)
+        let base = denoise.outputImage ?? src
+
+        // Edge ink using CILineOverlay (better ink than simple Edges)
+        let ink = CIFilter.lineOverlay(); ink.inputImage = base; ink.nrNoiseLevel = pick(0.01, 0.015, 0.02); ink.nrSharpness = pick(0.75, 0.6, 0.45); ink.edgeIntensity = pick(0.8, 1.0, 1.25); ink.threshold = pick(0.08, 0.06, 0.05)
+        let inkImage = ink.outputImage ?? base
+
+        // Color quantization
+        let poster = CIFilter.colorPosterize(); poster.inputImage = base; poster.levels = Float(NSNumber(value: pick(7, 6, 5)))
+        let colorBase = poster.outputImage ?? base
 
         let output: CIImage
         switch options.style {
         case .comic:
-            // Comic: posterize -> edges -> noir -> multiply
-            let poster = CIFilter.colorPosterize(); poster.inputImage = src; poster.levels = Float(NSNumber(value: Int(3 + roundf(Float(t*4)))))
-            let edges = CIFilter.edges(); edges.inputImage = poster.outputImage; edges.intensity = Float(2 + 6*t)
-            let noir = CIFilter.photoEffectNoir(); noir.inputImage = poster.outputImage
-            let blend = CIFilter.multiplyBlendMode(); blend.inputImage = edges.outputImage; blend.backgroundImage = noir.outputImage
-            // optional: slight saturation boost back
-            let sat = CIFilter.colorControls(); sat.inputImage = blend.outputImage; sat.saturation = Float(0.9 + 0.6*t as NSNumber); sat.brightness = 0; sat.contrast = Float(1.05 + 0.2*t as NSNumber)
-            output = sat.outputImage ?? blend.outputImage ?? src
+            // 간결 만화톤: posterize → lineOverlay(약) → morphology로 얇은 선 → Overlay 합성 → 살짝 폴리싱
+            let levels = pick(6, 6, 5)                // 색면 유지
+            let edgeInt = pick(0.8, 1.0, 1.2)         // 라인 강도 (낮춤)
+            let thresh  = pick(0.10, 0.08, 0.06)      // 임계값 (↑ 얇은 선)
+            let erodeR  = pick(0.6, 0.8, 1.0)         // 침식 반경 (얇게)
+            let satV    = pick(1.08, 1.12, 1.18)
+            let ctrV    = pick(1.08, 1.15, 1.22)
+            let shadowLift: CGFloat = 0.06
+
+            // 1) 약한 포스터라이즈로 사진 느낌 줄이고 색면 유지
+            let poster = CIFilter.colorPosterize()
+            poster.inputImage = base
+            poster.levels = Float(NSNumber(value: levels))
+            let colorQ = poster.outputImage ?? base
+
+            // 2) 라인 추출 (톤다운)
+            let ink = CIFilter.lineOverlay()
+            ink.inputImage      = base
+            ink.nrNoiseLevel    = pick(0.01, 0.015, 0.02)
+            ink.nrSharpness     = pick(0.75, 0.60, 0.50)
+            ink.edgeIntensity   = Float(edgeInt)
+            ink.threshold       = Float(thresh)
+            let inkRaw = ink.outputImage ?? base
+
+            // 3) 선 얇게 (침식)
+            let erode = CIFilter.morphologyMinimum()
+            erode.inputImage = inkRaw
+            erode.radius = Float(NSNumber(value: erodeR))
+            let inkThin = erode.outputImage ?? inkRaw
+
+            // 4) Overlay 합성(곱하기 금지: 과암 방지)
+            let blend = CIFilter.overlayBlendMode()
+            blend.inputImage = inkThin
+            blend.backgroundImage = colorQ
+            let blended = blend.outputImage ?? colorQ
+
+            // 5) 블랙 크러시 완화 + 색감 폴리싱
+            let lift = CIFilter.colorControls()
+            lift.inputImage = blended
+            lift.brightness = Float(NSNumber(value: shadowLift))
+            lift.saturation = Float(NSNumber(value: satV))
+            lift.contrast   = Float(NSNumber(value: ctrV))
+
+            output = lift.outputImage ?? blended
 
         case .monoSketch:
-            // MonoSketch: edges strong -> invert -> screen over monochrome base
-            let mono = CIFilter.photoEffectMono(); mono.inputImage = src
-            let edges = CIFilter.edges(); edges.inputImage = mono.outputImage; edges.intensity = Float(4 + 6*t)
-            let invert = CIFilter.colorInvert(); invert.inputImage = edges.outputImage
-            let blur = CIFilter.gaussianBlur(); blur.inputImage = invert.outputImage; blur.radius = Float(0.5 + 1.5*t)
-            let screen = CIFilter.screenBlendMode(); screen.inputImage = blur.outputImage; screen.backgroundImage = mono.outputImage
-            output = screen.outputImage ?? mono.outputImage ?? src
+            // Grayscale base + line overlay (screen) for pencil feel
+            let mono = CIFilter.photoEffectMono(); mono.inputImage = colorBase
+            let screen = CIFilter.screenBlendMode(); screen.inputImage = inkImage; screen.backgroundImage = mono.outputImage
+            let gamma = CIFilter.gammaAdjust(); gamma.inputImage = screen.outputImage; gamma.power = Float(NSNumber(value: pick(0.9, 0.85, 0.8)))
+            output = gamma.outputImage ?? screen.outputImage ?? mono.outputImage ?? colorBase
 
         case .noir:
-            // Noir: noir high-contrast + subtle edges
-            let noir = CIFilter.photoEffectNoir(); noir.inputImage = src
-            let edges = CIFilter.edges(); edges.inputImage = noir.outputImage; edges.intensity = Float(1 + 3*t)
-            let overlay = CIFilter.overlayBlendMode(); overlay.inputImage = edges.outputImage; overlay.backgroundImage = noir.outputImage
-            let contrast = CIFilter.colorControls(); contrast.inputImage = overlay.outputImage; contrast.contrast = Float(1.1 + 0.4*t as NSNumber)
-            output = contrast.outputImage ?? overlay.outputImage ?? noir.outputImage ?? src
+            // 1) 노이즈 감소 + 포스터라이즈 등을 이미 위에서 만들었다면 그걸 사용
+            let noir = CIFilter.photoEffectNoir()
+            noir.inputImage = colorBase
+
+            // 2) CMYK Halftone (KVC 키는 반드시 inputGCR / inputUCR)
+            let halftone = CIFilter(name: "CICMYKHalftone")! // 또는 CIFilter.cmykHalftone()
+            halftone.setValue(noir.outputImage, forKey: kCIInputImageKey)
+            halftone.setValue(pick(20, 14, 10), forKey: kCIInputWidthKey)
+            halftone.setValue(0.0, forKey: kCIInputAngleKey)
+            halftone.setValue(0.7, forKey: kCIInputSharpnessKey)
+            halftone.setValue(0.7, forKey: "inputGCR")
+            halftone.setValue(0.7, forKey: "inputUCR")
+
+            // 3) 잉크 라인과 합성
+            let overlay = CIFilter.softLightBlendMode()
+            overlay.inputImage = inkImage
+            overlay.backgroundImage = halftone.outputImage
+
+            output = overlay.outputImage ?? halftone.outputImage ?? noir.outputImage ?? colorBase
 
         case .edgeWork:
-            // EdgeWork: native CIEdgeWork + posterize subtle
-            let ew = CIFilter.edgeWork(); ew.inputImage = src; ew.radius = Float(1 + 4*t as NSNumber)
-            let poster = CIFilter.colorPosterize(); poster.inputImage = ew.outputImage; poster.levels = Float(NSNumber(value: 4 + Int(round(2*t))))
-            output = poster.outputImage ?? ew.outputImage ?? src
+            // EdgeWork with quantized color (graphic look)
+            let ew = CIFilter.edgeWork(); ew.inputImage = colorBase; ew.radius = Float(NSNumber(value: pick(1.2, 2.0, 3.0)))
+            let blend = CIFilter.multiplyBlendMode(); blend.inputImage = inkImage; blend.backgroundImage = ew.outputImage
+            output = blend.outputImage ?? ew.outputImage ?? colorBase
         }
 
         guard let outCG = ctx.createCGImage(output, from: output.extent) else { throw CartoonizeError.decodeFailed }
